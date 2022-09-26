@@ -3,7 +3,7 @@ const cod = require('./CryptoModel');
 const backup = require('./BackupFileModel');
 const download = require('./DownloadModel');
 const { firefox } = require('playwright'); 
-const { access, constants, createWriteStream, existsSync, rmdir } = require('fs');
+const { access, constants, createWriteStream, existsSync } = require('fs');
 const { mkdir } = require('fs/promises');
 const path = require('path');
 const archiver = require('archiver');
@@ -52,6 +52,39 @@ module.exports = class AutoModel {
       }));
     }
   };
+
+
+ async getURLDownloadInstantly(search, nPages = 2) {
+    this.search = search;
+    await this.page.goto(this.lPage(this.search));
+    let name_path = await this.page.locator(this.lTitle).textContent('');
+    let _path = path.join(__dirname, '..', this.folderdownloads, name_path);
+    if(!existsSync(_path)) mkdir(_path);
+    let profile_path = path.join(_path, name_path);
+    if(!existsSync(profile_path)) mkdir(profile_path);
+    await this.page.mouse.wheel(0, 1000);
+
+    let imgs = [];
+    for(let i = 0; i<=(nPages-1); i++) {
+      if(i>0) await this.page.click('/'+'/*[@id="sub-folder-gallery"]/div/div[3]/div/a[4]');
+      let galeria = await this.page.$$(this.lGaleria);
+      await Promise.all(galeria.map(async item => { 
+        imgs.push(await item.getAttribute('href'));
+      }));
+    }
+
+    for(let j = 0; j<=(imgs.length-1); j++) {
+      await this.page.goto(imgs[j]);  
+      if(this.exist_blocking) {
+        const exist_blocking = await this.page.$$(this.exist_blocking);
+        if(exist_blocking.length == 0) await this.download_URL(j, profile_path);
+      } else {
+        await this.download_URL(j, profile_path);
+      }
+    }
+  };
+
+
 
   async save_Imgs() {
     access(backup.local, constants.F_OK, async err => {
